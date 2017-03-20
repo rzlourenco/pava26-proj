@@ -3,10 +3,8 @@ package ist.meic.pa;
 import javassist.*;
 import javassist.compiler.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.regex.Pattern;
 
 public class KeyConstructors {
     public static void main(String[] args) {
@@ -36,13 +34,30 @@ public class KeyConstructors {
         }
     }
 
+    private static final Pattern JAVA_IDENTIFIER = Pattern.compile("[a-zA-Z_$][a-zA-Z0-9_$]*");
+
     public class KeywordArguments {
         public Map<String, Object> arguments = new HashMap<>();
 
         KeywordArguments(String value) {
-            Lex lex = new Lex(value);
-            Parser parser = new Parser(lex);
+            List<String> keyVals = new ArrayList<>();
+            String[] commaParts = value.split(",");
+
+            for (String commaPart : commaParts) {
+                String[] equalsParts = commaPart.split("=", 2);
+
+                if (equalsParts.length == 1)
+                    throw new RuntimeException("Must implement merging!");
+
+                String identifier = equalsParts[0], expression = equalsParts[1];
+                if (!JAVA_IDENTIFIER.matcher(identifier).matches())
+                    throw new RuntimeException("Must implement merging!");
+
+                if (arguments.get(identifier) != null)
+                    throw new RuntimeException("Duplicate argument \"" + identifier + "\"");
+            }
         }
+
     }
 
     private static void handleKeywordArgs(CtClass cl) {
@@ -50,9 +65,13 @@ public class KeyConstructors {
             if (!ct.hasAnnotation(KeywordArgs.class))
                 continue;
 
+            float a, b;
+
+            Math.pow(a=3, b=4);
+
             KeywordArgs annotation;
             try {
-                annotation = (KeywordArgs)ct.getAnnotation(KeywordArgs.class);
+                annotation = (KeywordArgs) ct.getAnnotation(KeywordArgs.class);
             } catch (ClassNotFoundException e) {
                 e.printStackTrace(System.err);
                 System.exit(1);
