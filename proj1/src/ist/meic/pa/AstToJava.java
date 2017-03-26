@@ -71,6 +71,10 @@ class AstToJava extends Visitor implements TokenId {
 
     @Override
     public void atInstanceOfExpr(InstanceOfExpr n) throws CompileError {
+        sb.append("(");
+        n.getLeft().accept(this);
+        sb.append(") instanceof ");
+        n.getRight().accept(this);
         throw new UnsupportedOperationException();
     }
 
