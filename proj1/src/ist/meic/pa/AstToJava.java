@@ -6,15 +6,19 @@ import javassist.compiler.ast.*;
 
 class AstToJava extends Visitor implements TokenId {
     StringBuilder sb = new StringBuilder();
+    String listSep = "";
 
     @Override
     public void atASTList(ASTList n) throws CompileError {
-        n.head().accept(this);
+        if (n.getLeft() != null) {
+            n.getLeft().accept(this);
 
-        for (ASTList tail = n.tail(); tail != null; tail = tail.tail()) {
-            sb.append(",");
-            tail.head().accept(this);
+            if (n.getRight() != null)
+                sb.append(listSep);
         }
+
+        if (n.getRight() != null)
+            n.getRight().accept(this);
     }
 
     @Override
@@ -55,7 +59,9 @@ class AstToJava extends Visitor implements TokenId {
     public void atCallExpr(CallExpr n) throws CompileError {
         n.getLeft().accept(this);
         sb.append("(");
+        listSep = ",";
         n.getRight().accept(this);
+        listSep = "";
         sb.append(")");
     }
 
@@ -80,12 +86,21 @@ class AstToJava extends Visitor implements TokenId {
 
     @Override
     public void atNewExpr(NewExpr n) throws CompileError {
-        throw new UnsupportedOperationException();
+        sb.append("new ");
+        listSep = ".";
+        n.getLeft().accept(this);
+        listSep = "";
+
+        sb.append("(");
+        listSep = ",";
+        n.getRight().accept(this);
+        listSep = "";
+        sb.append(")");
     }
 
     @Override
     public void atSymbol(Symbol n) throws CompileError {
-        throw new UnsupportedOperationException();
+        sb.append(n.get());
     }
 
     @Override

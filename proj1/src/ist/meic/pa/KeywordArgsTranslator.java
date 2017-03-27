@@ -117,8 +117,13 @@ public class KeywordArgsTranslator implements Translator {
 
         // We start by simply setting the fields' default values. It is simple to do, easy to optimize.
         keywordFields.forEach((field, expr) -> {
-            if (!INHERITED_VALUE.equals(expr))
-                methodBody.append("    " + accessField(cl, field) + " = (" + expr + ");\n");
+            if (!INHERITED_VALUE.equals(expr)) {
+                try {
+                    boxfulAssignment(methodBody, cl, field, expr);
+                } catch (NotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         });
 
         methodBody.append("\n");
@@ -136,7 +141,7 @@ public class KeywordArgsTranslator implements Translator {
                 methodBody.append("        else if (\"" + field.getName() + "\".equals($1[ix]))\n");
             }
 
-            boxfulAssignment(methodBody, cl, field);
+            boxfulAssignment(methodBody, cl, field, "$1[ix+1]");
         }
 
         methodBody.append("        else\n");
@@ -145,13 +150,13 @@ public class KeywordArgsTranslator implements Translator {
         methodBody.append("    }\n");
         methodBody.append("}\n");
 
-        //System.err.println("<" + cl.getName() + "> generated keyword arguments constructor body:");
-        //System.err.println(methodBody);
+        System.err.println("<" + cl.getName() + "> generated keyword arguments constructor body:");
+        System.err.println(methodBody);
 
         ct.setBody(methodBody.toString());
     }
 
-    private void boxfulAssignment(StringBuilder methodBody, CtClass cl, CtField field) throws NotFoundException {
+    private void boxfulAssignment(StringBuilder methodBody, CtClass cl, CtField field, String expr) throws NotFoundException {
         boolean unbox = false;
         CtClass fieldType = field.getType();
         String boxedType = fieldType.getName(), unboxFunction = fieldType.getSimpleName() + "Value";
@@ -194,12 +199,20 @@ public class KeywordArgsTranslator implements Translator {
 
         if (unbox) {
             if ("char".equals(fieldType.getSimpleName()))
-                methodBody.append("            " + fieldAccess + " = " + boxedType + ".valueOf($1[ix+1].toString().charAt(0))." + unboxFunction + "();\n");
+                methodBody.append("            "
+                        + fieldAccess + " = "
+                        + boxedType + ".valueOf((\"\" + (" + expr + ")).charAt(0))."
+                        + unboxFunction + "();\n");
             else
-                methodBody.append("            " + fieldAccess + " = " + boxedType + ".valueOf($1[ix+1].toString())." + unboxFunction + "();\n");
+                methodBody.append("            "
+                        + fieldAccess + " = "
+                        + boxedType + ".valueOf((\"\" + (" + expr + ")))."
+                        + unboxFunction + "();\n");
         }
         else
-            methodBody.append("            " + fieldAccess + " = (" + fieldType.getName() + ")$1[ix+1];\n");
+            methodBody.append("            "
+                    + fieldAccess + " = (" + fieldType.getName() + ")("
+                    + expr + ");\n");
     }
 
     private void inheritDefaultValues(CtClass cl, final Map<String, String> keywordArgs) throws NotFoundException, CannotCompileException {
