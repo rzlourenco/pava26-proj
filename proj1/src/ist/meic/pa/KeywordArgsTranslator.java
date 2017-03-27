@@ -29,19 +29,30 @@ public class KeywordArgsTranslator implements Translator {
             // be whacked in the head with a damn chair.
             try {
                 handleConstructor(cl, ct, ka);
+                addDefaultConstructor(cl);
             } catch (CannotCompileException | NotFoundException e) {
                 throw new RuntimeException("Java is a fucking pain in the ass", e);
             }
         });
-
-        addPrivateDefaultConstructor(cl);
     }
 
-    private void addPrivateDefaultConstructor(CtClass cl) throws NotFoundException {
-        CtConstructor ct = cl.getConstructor("<init>()V");
+    private void addDefaultConstructor(CtClass cl) throws CannotCompileException {
+        CtConstructor ct;
 
+        try {
+            // There is a default constructor, we have nothing to do here.
+            ct = cl.getConstructor("<init>()V");
+            return;
+        } catch (NotFoundException _) {
+            // This is no exception, we *are* expecting this, so do nothing. We are adding a new one.
+        }
 
+        ct = new CtConstructor(new CtClass[0], cl);
+        assert "<init>()V".equals(ct.getGenericSignature());
 
+        ct.setBody("{}");
+
+        cl.addConstructor(ct);
     }
 
     private void onKeywordArgsConstructor(CtClass cl, BiConsumer<? super CtConstructor, ? super KeywordArgs> func) throws NotFoundException, CannotCompileException {
@@ -84,11 +95,18 @@ public class KeywordArgsTranslator implements Translator {
 
         // We start by simply setting the fields' default values. It is simple to do, easy to optimize.
         keywordArgs.forEach((field, expr) -> {
-            assert !INHERITED_VALUE.equals(expr);
-            methodBody.append("    " + field + " = (" + expr + ");\n");
+            if (!INHERITED_VALUE.equals(expr))
+                methodBody.append("    " + field + " = (" + expr + ");\n");
+            else
+                /* if no default value is specified, it receives the default Java value */;
         });
 
+        methodBody.append("");
+
         methodBody.append("}");
+
+        System.err.println("Generated constructor body:");
+        System.err.println(methodBody);
 
         ct.setBody(methodBody.toString());
     }
@@ -110,12 +128,16 @@ public class KeywordArgsTranslator implements Translator {
                 return;
 
             onKeywordArgsConstructor(parentClass, (CtConstructor ct, KeywordArgs ka) -> {
-                Map<String, String> keyArgs = parseKeywordArgs(ka.value());
+                final Map<String, String> keyArgs = parseKeywordArgs(ka.value());
+
+                needDefault.forEach((field, expr) -> {
+                    String inheritedDefaultValue = keyArgs.get(field);
+
+                    if (inheritedDefaultValue != null && !INHERITED_VALUE.equals(inheritedDefaultValue))
+                        keywordArgs.put(field, inheritedDefaultValue);
+                });
             });
         }
-
-        throw new CannotCompileException(
-                "no default value set for keyword argument '" + needDefault.keySet().iterator().next() + "'");
     }
 
     private void checkInvalidParams(CtClass cl, Map<String, String> keywordArgs) throws CannotCompileException {

@@ -90,7 +90,7 @@ class AstToJava extends Visitor implements TokenId {
 
     @Override
     public void atMember(Member n) throws CompileError {
-        sb.append(n.get());
+        sb.append(n.toString());
     }
 
     @Override
@@ -100,7 +100,19 @@ class AstToJava extends Visitor implements TokenId {
 
     @Override
     public void atKeyword(Keyword n) throws CompileError {
-        sb.append(n.toString());
+        switch (n.get()) {
+        case TRUE:
+            sb.append("true");
+            break;
+        case FALSE:
+            sb.append("false");
+            break;
+        case NULL:
+            sb.append("null");
+            break;
+        default:
+            throw new RuntimeException("unexpected keyword");
+        }
     }
 
     @Override
