@@ -43,7 +43,7 @@ public class KeywordArgsTranslator implements Translator {
             // There is a default constructor, we have nothing to do here.
             ct = cl.getConstructor("<init>()V");
             return;
-        } catch (NotFoundException _) {
+        } catch (NotFoundException uh) {
             // This is no exception, we *are* expecting this, so do nothing. We are adding a new one.
         }
 
