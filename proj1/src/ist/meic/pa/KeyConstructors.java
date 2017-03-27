@@ -50,10 +50,11 @@ public class KeyConstructors {
                     throw new RuntimeException("Must implement merging!");
 
                 String identifier = equalsParts[0], expression = equalsParts[1];
+
                 if (!JAVA_IDENTIFIER.matcher(identifier).matches())
                     throw new RuntimeException("Must implement merging!");
 
-                if (arguments.get(identifier) != null)
+                if (arguments.put(identifier, expression) != null)
                     throw new RuntimeException("Duplicate argument \"" + identifier + "\"");
             }
         }
@@ -64,10 +65,6 @@ public class KeyConstructors {
         for (CtConstructor ct : cl.getConstructors()) {
             if (!ct.hasAnnotation(KeywordArgs.class))
                 continue;
-
-            float a, b;
-
-            Math.pow(a=3, b=4);
 
             KeywordArgs annotation;
             try {
