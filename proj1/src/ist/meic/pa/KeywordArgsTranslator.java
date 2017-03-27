@@ -56,8 +56,8 @@ public class KeywordArgsTranslator implements Translator {
         ctorBody.append("    this(new java.lang.Object[0]);\n");
         ctorBody.append("}\n");
 
-        System.err.println("<" + cl.getName() + "> generated default constructor body:");
-        System.err.println(ctorBody);
+        //System.err.println("<" + cl.getName() + "> generated default constructor body:");
+        //System.err.println(ctorBody);
 
         ct.setBody(ctorBody.toString());
         cl.addConstructor(ct);
@@ -91,68 +91,127 @@ public class KeywordArgsTranslator implements Translator {
         }
     }
 
+    private String accessField(CtClass cl, CtField field) {
+        return (cl.equals(field.getDeclaringClass()) ? "this." : "super.") + field.getName();
+    }
+
     private void handleConstructor(CtClass cl, CtConstructor ct, KeywordArgs ka) throws CannotCompileException, NotFoundException {
         Map<String, String> keywordArgs = parseKeywordArgs(ka.value());
 
+        if (keywordArgs.size() == 0)
+            return;
+
         checkInvalidParams(cl, keywordArgs);
+
+        // We inherit the values *after* setting ours so we don't repeat work done by the superclass' keyword constructor.
+        // XXX: do we even have to inherit anything?
+        inheritDefaultValues(cl, keywordArgs);
+
+        Map<CtField, String> keywordFields = new HashMap<>();
+        for (String field : keywordArgs.keySet()) {
+            keywordFields.put(cl.getField(field), keywordArgs.get(field));
+        }
 
         StringBuilder methodBody = new StringBuilder();
         methodBody.append("{\n");
-        // methodBody.append("    super();\n");
 
         // We start by simply setting the fields' default values. It is simple to do, easy to optimize.
-        keywordArgs.forEach((field, expr) -> {
+        keywordFields.forEach((field, expr) -> {
             if (!INHERITED_VALUE.equals(expr))
-                methodBody.append("    " + field + " = (" + expr + ");\n");
-            else
-                /* if no default value is specified, it receives the default Java value */;
+                methodBody.append("    " + accessField(cl, field) + " = (" + expr + ");\n");
         });
-
-        inheritDefaultValues(cl, keywordArgs);
 
         methodBody.append("\n");
         methodBody.append("    if ($1.length % 2 != 0)\n");
         methodBody.append("        throw new RuntimeException(\"uneven number of arguments!\");\n");
         methodBody.append("\n");
-        methodBody.append("    for (int ix = 0; ix < $1.length; ++ix) {\n");
+        methodBody.append("    for (int ix = 0; ix < $1.length; ix += 2) {\n");
 
+        boolean isFirst = true;
+        for (CtField field : keywordFields.keySet()) {
+            if (isFirst) {
+                methodBody.append("        if (\"" + field.getName() + "\".equals($1[ix]))\n");
+                isFirst = false;
+            } else {
+                methodBody.append("        else if (\"" + field.getName() + "\".equals($1[ix]))\n");
+            }
 
+            boxfulAssignment(methodBody, cl, field);
+        }
+
+        methodBody.append("        else\n");
+        methodBody.append("            throw new RuntimeException(\"Unrecognized keyword: \" + $1[ix]);\n");
 
         methodBody.append("    }\n");
         methodBody.append("}\n");
 
-        System.err.println("<" + cl.getName() + "> generated keyword arguments constructor body:");
-        System.err.println(methodBody);
+        //System.err.println("<" + cl.getName() + "> generated keyword arguments constructor body:");
+        //System.err.println(methodBody);
 
         ct.setBody(methodBody.toString());
-        //cl.addConstructor(ct);
+    }
+
+    private void boxfulAssignment(StringBuilder methodBody, CtClass cl, CtField field) throws NotFoundException {
+        boolean unbox = false;
+        CtClass fieldType = field.getType();
+        String boxedType = fieldType.getName(), unboxFunction = fieldType.getSimpleName() + "Value";
+        String fieldAccess = accessField(cl, field);
+
+        switch (fieldType.getSimpleName()) {
+        case "boolean":
+            boxedType = "Boolean";
+            unbox = true;
+            break;
+        case "byte":
+            boxedType = "Byte";
+            unbox = true;
+            break;
+        case "char":
+            boxedType = "Character";
+            unbox = true;
+            break;
+        case "float":
+            boxedType = "Float";
+            unbox = true;
+            break;
+        case "int":
+            boxedType = "Integer";
+            unbox = true;
+            break;
+        case "long":
+            boxedType = "Long";
+            unbox = true;
+            break;
+        case "short":
+            boxedType = "Short";
+            unbox = true;
+            break;
+        case "double":
+            boxedType = "Double";
+            unbox = true;
+            break;
+        }
+
+        if (unbox) {
+            if ("char".equals(fieldType.getSimpleName()))
+                methodBody.append("            " + fieldAccess + " = " + boxedType + ".valueOf($1[ix+1].toString().charAt(0))." + unboxFunction + "();\n");
+            else
+                methodBody.append("            " + fieldAccess + " = " + boxedType + ".valueOf($1[ix+1].toString())." + unboxFunction + "();\n");
+        }
+        else
+            methodBody.append("            " + fieldAccess + " = (" + fieldType.getName() + ")$1[ix+1];\n");
     }
 
     private void inheritDefaultValues(CtClass cl, final Map<String, String> keywordArgs) throws NotFoundException, CannotCompileException {
-        final Map<String, String> needDefault = new HashMap<>();
         CtClass parentClass = cl;
 
         while (parentClass.getSuperclass() != null) {
-            needDefault.clear();
             parentClass = parentClass.getSuperclass();
-
-            keywordArgs.forEach((field, expr) -> {
-                if (INHERITED_VALUE.equals(expr))
-                    needDefault.put(field, expr);
-            });
-
-            if (needDefault.size() == 0)
-                return;
 
             onKeywordArgsConstructor(parentClass, (CtConstructor ct, KeywordArgs ka) -> {
                 final Map<String, String> keyArgs = parseKeywordArgs(ka.value());
 
-                needDefault.forEach((field, expr) -> {
-                    String inheritedDefaultValue = keyArgs.get(field);
-
-                    if (inheritedDefaultValue != null && !INHERITED_VALUE.equals(inheritedDefaultValue))
-                        keywordArgs.put(field, inheritedDefaultValue);
-                });
+                keyArgs.forEach(keywordArgs::putIfAbsent);
             });
         }
     }
