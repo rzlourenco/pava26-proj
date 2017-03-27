@@ -28,8 +28,8 @@ public class KeywordArgsTranslator implements Translator {
             // convert it into a RuntimeException. This interaction is really badly designed. Whoever designed it should
             // be whacked in the head with a damn chair.
             try {
-                handleConstructor(cl, ct, ka);
                 addDefaultConstructor(cl);
+                handleConstructor(cl, ct, ka);
             } catch (CannotCompileException | NotFoundException e) {
                 throw new RuntimeException("Java is a fucking pain in the ass", e);
             }
@@ -50,8 +50,16 @@ public class KeywordArgsTranslator implements Translator {
         ct = new CtConstructor(new CtClass[0], cl);
         assert "<init>()V".equals(ct.getGenericSignature());
 
-        ct.setBody("{}");
+        StringBuilder ctorBody = new StringBuilder();
 
+        ctorBody.append("{\n");
+        ctorBody.append("    this(new java.lang.Object[0]);\n");
+        ctorBody.append("}\n");
+
+        System.err.println("<" + cl.getName() + "> generated default constructor body:");
+        System.err.println(ctorBody);
+
+        ct.setBody(ctorBody.toString());
         cl.addConstructor(ct);
     }
 
@@ -86,12 +94,11 @@ public class KeywordArgsTranslator implements Translator {
     private void handleConstructor(CtClass cl, CtConstructor ct, KeywordArgs ka) throws CannotCompileException, NotFoundException {
         Map<String, String> keywordArgs = parseKeywordArgs(ka.value());
 
-        inheritDefaultValues(cl, keywordArgs);
         checkInvalidParams(cl, keywordArgs);
 
         StringBuilder methodBody = new StringBuilder();
         methodBody.append("{\n");
-        //methodBody.append("    super();\n");
+        // methodBody.append("    super();\n");
 
         // We start by simply setting the fields' default values. It is simple to do, easy to optimize.
         keywordArgs.forEach((field, expr) -> {
@@ -101,14 +108,24 @@ public class KeywordArgsTranslator implements Translator {
                 /* if no default value is specified, it receives the default Java value */;
         });
 
-        methodBody.append("");
+        inheritDefaultValues(cl, keywordArgs);
 
-        methodBody.append("}");
+        methodBody.append("\n");
+        methodBody.append("    if ($1.length % 2 != 0)\n");
+        methodBody.append("        throw new RuntimeException(\"uneven number of arguments!\");\n");
+        methodBody.append("\n");
+        methodBody.append("    for (int ix = 0; ix < $1.length; ++ix) {\n");
 
-        System.err.println("Generated constructor body:");
+
+
+        methodBody.append("    }\n");
+        methodBody.append("}\n");
+
+        System.err.println("<" + cl.getName() + "> generated keyword arguments constructor body:");
         System.err.println(methodBody);
 
         ct.setBody(methodBody.toString());
+        //cl.addConstructor(ct);
     }
 
     private void inheritDefaultValues(CtClass cl, final Map<String, String> keywordArgs) throws NotFoundException, CannotCompileException {
