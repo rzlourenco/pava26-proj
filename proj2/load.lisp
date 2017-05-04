@@ -114,6 +114,9 @@
 ;(pprint
 ;  (macroexpand `(def-class (ist-student student sportsman))))
 (def-class (ist-student student sportsman))
+;(pprint
+;  (macroexpand `(def-class (hero person) name power)))
+(def-class (hero person) name power)
 
 (format t "~%")
 (let ((a (make-person :name "Paulo" :age 33))
@@ -129,3 +132,8 @@
 
 (let ((m (make-ist-student :name "Maria" :course "IA" :activity "Tennis")))
   (pprint (list (ist-student? m) (student? m) (sportsman? m) (ist-student-name m) (person-name m) (sportsman-activity m) (ist-student-activity m))))
+
+(let ((m (make-hero :name "Coldsteel" :age 30 :power "edgyness")))
+  (pprint (list (person-name m) (hero-name m)))
+  (setf (person-name m) "Sonic")
+  (pprint (list (person-name m) (hero-name m))))
