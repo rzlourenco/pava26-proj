@@ -1,0 +1,14 @@
+digraph {
+    p [shape=box];
+    p -> t -> tv;
+    p -> f -> fv;
+    p -> s -> sv;
+
+    t [label=":type"];
+    f [label=":fields"];
+    s [label=":super"];
+
+    fv [label="((NAME . \"Maria\") (AGE . 997))", shape=box];
+    tv [label="PERSON", shape=box];
+    sv [label="NIL", shape=box]
+}

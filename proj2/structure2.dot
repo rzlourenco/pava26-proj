@@ -1,0 +1,41 @@
+digraph {
+    i0 -> t0 -> tv0;
+    i0 -> f0;
+    i0 -> s0;
+    f0 -> fv0_0;
+    f0 -> fv0_1;
+
+    t0 [label=":type", shape=hexagon];
+    f0 [label=":fields", shape=hexagon];
+    s0 [label=":super", shape=hexagon];
+
+    i0 [label="#:G3161"];
+    fv0_0 [label="(NAME . \"Maria\")", shape=box];
+    fv0_1 [label="(AGE . 997)", shape=box];
+    tv0 [label="PERSON", shape=box];
+
+    i1 -> t1 -> tv1;
+    i1 -> f1 -> fv1;
+    i1 -> s1;
+
+    t1 [label=":type", shape=hexagon];
+    f1 [label=":fields", shape=hexagon];
+    s1 [label=":super", shape=hexagon];
+
+    i1 [label="#:G3162"];
+    fv1 [label="(LIES . \"cake\")", shape=box];
+    tv1 [label="LIAR", shape=box];
+
+    i2 -> t2 -> tv2;
+    i2 -> f2;
+    i2 -> s2;
+    s2 -> i0;
+    s2 -> i1;
+
+    t2 [label=":type", shape=hexagon];
+    f2 [label=":fields", shape=hexagon];
+    s2 [label=":super", shape=hexagon];
+
+    i2 [label="p"];
+    tv2 [label="POLITICIAN", shape=box];
+}
